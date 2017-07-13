@@ -21,7 +21,7 @@ namespace TranslateAPIForms
     public partial class Form1 : Form
     {
         // Before running the application, input the secret key for your subscription to Translator Text Translation API.
-        //private const string TEXT_TRANSLATION_API_SUBSCRIPTION_KEY = "f25c0d27622240d29357a5fa0be7191e";
+        //private const string TEXT_TRANSLATION_API_SUBSCRIPTION_KEY = "f25c0d27622240d29357a5fa0be7191e      ";
 
         // Object to get an authentication token
         private AzureAuthToken tokenProvider;
@@ -120,6 +120,18 @@ namespace TranslateAPIForms
 
             /*if (speakLanguages.Contains(languageCode) && txtToTranslate != "")
             {
+
+
+
+
+
+
+
+
+
+
+
+
                 //call the method to speak the translated text
                 SpeakMethod(tokenProvider.GetAccessToken(), xTranslation.InnerText, languageCode);
             }*/
