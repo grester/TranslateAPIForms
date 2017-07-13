@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using System.Net;
 using System.Web;
@@ -63,66 +63,37 @@ namespace TranslateAPIForms
         }
         private string translate(string txtToTranslate, string languageCode)
         {
+            try{
+                string uri = string.Format("http://api.microsofttranslator.com/v2/Http.svc/Translate?text=" + System.Web.HttpUtility.UrlEncode(txtToTranslate) + "&to={0}", languageCode);
 
+                WebRequest translationWebRequest = WebRequest.Create(uri);
 
-            string uri = string.Format("http://api.microsofttranslator.com/v2/Http.svc/Translate?text=" + System.Web.HttpUtility.UrlEncode(txtToTranslate) + "&to={0}", languageCode);
+                translationWebRequest.Headers.Add("Authorization", tokenProvider.GetAccessToken()); //header value is the "Bearer plus the token from ADM
 
-            WebRequest translationWebRequest = WebRequest.Create(uri);
+                WebResponse response = null;
 
-            translationWebRequest.Headers.Add("Authorization", tokenProvider.GetAccessToken()); //header value is the "Bearer plus the token from ADM
+                response = translationWebRequest.GetResponse();
 
-            WebResponse response = null;
+                Stream stream = response.GetResponseStream();
 
-            response = translationWebRequest.GetResponse();
+                Encoding encode = Encoding.GetEncoding("utf-8");
 
-            Stream stream = response.GetResponseStream();
+                StreamReader translatedStream = new StreamReader(stream, encode);
 
-            Encoding encode = Encoding.GetEncoding("utf-8");
+                System.Xml.XmlDocument xTranslation = new System.Xml.XmlDocument();
 
-            StreamReader translatedStream = new StreamReader(stream, encode);
+                xTranslation.LoadXml(translatedStream.ReadToEnd());
 
-            System.Xml.XmlDocument xTranslation = new System.Xml.XmlDocument();
-
-            xTranslation.LoadXml(translatedStream.ReadToEnd());
-
-            String text = xTranslation.InnerText;
-            text = HttpUtility.HtmlEncode(text);
-            text = text.Replace("&lt;p&gt;", "<p>");
-            text = text.Replace("&lt;/p&gt;", "</p>");
-            return text;
-        }
-
-        /*  public MainWindow()
-          {
-              InitializeComponent();
-              tokenProvider = new AzureAuthToken(TEXT_TRANSLATION_API_SUBSCRIPTION_KEY);
-              GetLanguagesForTranslate(); //List of languages that can be translated
-              GetLanguageNamesMethod(tokenProvider.GetAccessToken(), friendlyName); //Friendly name of languages that can be translated            
-              enumLanguages(); //Create the drop down list of langauges
-          }*/
-
-        //*****POPULATE COMBOBOX*****
-        /*   private void enumLanguages()
-           {
-               //run a loop to load the combobox from the dictionary
-               var count = languageCodesAndTitles.Count;
-
-               for (int i = 0; i < count; i++)
-               {
-                   cbLang.Items.Add(languageCodesAndTitles.ElementAt(i).Key);
-               }
-           }*/
-
-        //*****BUTTON TO START TRANSLATION PROCESS
-        private void translateButton_Click(object sender, EventArgs e)
-        {
-
-
-            /*if (speakLanguages.Contains(languageCode) && txtToTranslate != "")
+                String text = xTranslation.InnerText;
+                text = HttpUtility.HtmlEncode(text);
+                text = text.Replace("&lt;p&gt;", "<p>");
+                text = text.Replace("&lt;/p&gt;", "</p>");
+                return text;
+            }
+            catch(WebException ex)
             {
-                //call the method to speak the translated text
-                SpeakMethod(tokenProvider.GetAccessToken(), xTranslation.InnerText, languageCode);
-            }*/
+                return txtToTranslate;            
+            }
         }
 
         //*****CODE TO GET TRANSLATABLE LANGAUGE CODES*****
@@ -223,17 +194,25 @@ namespace TranslateAPIForms
         {
             LogOut.Text = "initiating connection";
             
-            SqlConnection myConnection = new SqlConnection("user id=ELVIO-TOSH\\Elvio;" +
-                                       "password=;server=ELVIO-TOSH\\SQLExpress;" +
-                                       "Trusted_Connection=yes;" +
+            SqlConnection myConnection = new SqlConnection("user id=GonçaloDuque\\Gonçalo Duque;" + 
+                                       "password=;server=.\\sqlexpress;" + 
+                                       "Trusted_Connection=yes;" + 
                                        "database=DESCUBRA_BD;" +
+                                       "MultipleActiveResultSets=True;" +
                                        "connection timeout=120");
 
+            SqlConnection mySecondConnection = new SqlConnection("user id=GonçaloDuque\\Gonçalo Duque;" + 
+                                       "password=;server=.\\sqlexpress;" + 
+                                       "Trusted_Connection=yes;" + 
+                                       "database=DESCUBRA_BD;" +
+                                       "MultipleActiveResultSets=True;" +
+                                       "connection timeout=120");
             //Data Source = tcp:k22x2gwhfr.database.windows.net,1433; Initial Catalog = DESCUBRA_BD; User ID = wit5@k22x2gwhfr; Password = @worldit2008
 
             try
             {
                 myConnection.Open();
+                mySecondConnection.Open();
             }
             catch (Exception ex)
             {
@@ -244,7 +223,7 @@ namespace TranslateAPIForms
             try
             {
                 SqlDataReader myReader = null;
-                SqlCommand myCommand = new SqlCommand("select * from tbl_translate_agenda where language_id=1", myConnection);
+                SqlCommand myCommand = new SqlCommand("select * from tbl_translate_agenda where language_id = 1", myConnection);
 
                 myReader = myCommand.ExecuteReader();
                 System.Collections.ArrayList sqlCommandList = new System.Collections.ArrayList();
@@ -267,62 +246,146 @@ namespace TranslateAPIForms
                 string editorHTML = "";
                 int rows_Affected;
 
-
                 while (myReader.Read())
                 {
+
+
                     lID = Convert.ToInt32(myReader["language_id"]);
                     agenda_id = Convert.ToInt32(myReader["agenda_id"]);
 
                     languageCode = "en";
 
-
-                    description = translate(myReader["description"].ToString(), languageCode);
-                    if (description.Equals(""))
-                    {
-                        description = null;
+                    string valDescript = "";
+                    SqlCommand descriptCommand = new SqlCommand("SELECT description FROM dbo.tbl_translate_agenda WHERE language_id = 2 AND agenda_id = " + agenda_id, mySecondConnection);
+                    try{
+                        valDescript = (string)descriptCommand.ExecuteScalar().ToString();
                     }
-                    tbTransl.Text += description;
-                    tbTransl.Text += System.Environment.NewLine;
-
-                    title = translate(myReader["title"].ToString(), languageCode);
-                    if (title.Equals(""))
+                    catch(NullReferenceException ex)
                     {
-                        title = null;
+                        valDescript = " ";
                     }
-                    tbTransl2.Text += title;
-                    tbTransl2.Text += System.Environment.NewLine;
+                    if( valDescript.Length < 4 || valDescript.Equals(null) || valDescript.Equals(""))
+                    {                        
+                        description = translate(myReader["description"].ToString(), languageCode);
+                        if (description.Equals(""))
+                        {
+                            description = null;
+                        }
+                        tbTransl.Text += description;
+                        tbTransl.Text += System.Environment.NewLine;
+                    }
+                    else{
+                        description = valDescript;
+                    }
 
-                    subtitle = translate(myReader["subtitle"].ToString(), languageCode);
-                    if (subtitle.Equals(""))
+                    string valTitle = "";
+                    SqlCommand titleCommand = new SqlCommand("SELECT title FROM dbo.tbl_translate_agenda WHERE language_id = 2 AND agenda_id = " + agenda_id, mySecondConnection);
+                    try{
+                        valTitle = (string)titleCommand.ExecuteScalar().ToString();
+                    }
+                    catch(NullReferenceException ex)
                     {
-                        subtitle = null;
+                        valTitle = " ";
                     }
-                    tbTransl3.Text += subtitle;
-                    tbTransl3.Text += System.Environment.NewLine;
-
-                    editorHTML = translate(myReader["editorHTML"].ToString(), languageCode);
-                    if (editorHTML.Equals(""))
+                    if(valTitle.Length < 4 || valTitle.Equals(null) || valTitle.Equals(""))
                     {
-                        editorHTML = null;
+                        title = translate(myReader["title"].ToString(), languageCode);
+                        if (title.Equals(""))
+                        {
+                            title = null;
+                        }
+                        tbTransl2.Text += title;
+                        tbTransl2.Text += System.Environment.NewLine;
                     }
-                    tbTransl4.Text += editorHTML;
-                    tbTransl4.Text += System.Environment.NewLine;
+                    else
+                    {
+                        title = valTitle;
+                    }
 
+                    string valSubtitle = "";
+                    SqlCommand subtitleCommand = new SqlCommand("SELECT subtitle FROM dbo.tbl_translate_agenda WHERE language_id = 2 AND agenda_id = " + agenda_id, mySecondConnection);
+                    try{
+                        valSubtitle = (string)subtitleCommand.ExecuteScalar().ToString();
+                    }
+                    catch(NullReferenceException ex)
+                    {
+                        valSubtitle = " ";
+                    }
+                    if(valSubtitle.Length < 4 || valSubtitle.Equals(null) || valSubtitle.Equals(""))
+                    {
+                        subtitle = translate(myReader["subtitle"].ToString(), languageCode);
+                        if (subtitle.Equals(""))
+                        {
+                            subtitle = null;
+                        }
+                        tbTransl3.Text += subtitle;
+                        tbTransl3.Text += System.Environment.NewLine;
+                    }
+                    else
+                    {
+                        subtitle = valSubtitle;
+                    }
 
-                    queryUpdate = "UPDATE tbl_translate_agenda" + " " +
-                        "SET " +
-                        "description = " + "'" + description + "'" + "," +
-                        "title = " + "'" + title + "'" + "," +
-                        "subtitle = " + "'" + subtitle + "'" + " " + "," +
-                        "editorHTML = " + "'" + editorHTML + "'" + " " +
+                    string valHTML = "";
+                    SqlCommand htmlCommand = new SqlCommand("SELECT editorHTML FROM dbo.tbl_translate_agenda WHERE language_id = 2 AND agenda_id = " + agenda_id, mySecondConnection);
+                    try{
+                        valHTML = (string)htmlCommand.ExecuteScalar().ToString();
+                    }
+                    catch(NullReferenceException ex)
+                    {
+                        valHTML = " ";
+                    }
+                    if(valHTML.Length < 11 || valHTML.Equals(null)  || valHTML.Equals(""))
+                    {
+                        editorHTML = translate(myReader["editorHTML"].ToString(), languageCode);
+                        if (editorHTML.Equals(""))
+                        {
+                            editorHTML = null;
+                        }
+                        tbTransl4.Text += editorHTML;
+                        tbTransl4.Text += System.Environment.NewLine;
+                    }
+                    else
+                    {
+                        editorHTML = valHTML;
+                    }                       
 
-                        "WHERE language_id = 2 " +
-                        "AND agenda_id = " + agenda_id + ";";
+                    string audio = Convert.ToString(myReader["audio"]);
 
-                    LogOut.Text = queryUpdate;
-                    sqlCommandList.Add(queryUpdate);
+                    if((valDescript.Length < 4 || valDescript.Equals(null) || valDescript.Equals("")) || 
+                        (valTitle.Length < 4 || valTitle.Equals(null) || valTitle.Equals("")) || 
+                        (valSubtitle.Length < 4 || valSubtitle.Equals(null) || valSubtitle.Equals("")) || 
+                        (valHTML.Length < 11 || valHTML.Equals(null) || valHTML.Equals("")))
+                    {
+                            queryUpdate = "BEGIN TRAN " +
+                            "IF EXISTS (SELECT * FROM dbo.tbl_translate_agenda WHERE language_id = 2 AND agenda_id = " + agenda_id + " ) "+
+                            "BEGIN " +
+                                "UPDATE tbl_translate_agenda" + " " +
+                                "SET " +
+                                "description = " + "'" + description + "'" + "," +
+                                " title = " + "'" + title + "'" + "," +
+                                " subtitle = " + "'" + subtitle + "'" + "," +
+                                " editorHTML = " + "'" + editorHTML + "'" + " " +
+                                "WHERE language_id = 2 " +
+                                "AND agenda_id = " + agenda_id + 
+                            " END " + 
+                            "ELSE " +
+                            "BEGIN " +
+                                "INSERT INTO tbl_translate_agenda" + " " +
+                                "VALUES ( " + agenda_id +
+                                ", " + "2, " + "'" + description + "'" + ", " + 
+                                "'" + title + "'" + ", " +
+                                "'" + subtitle + "'" + ", " + 
+                                "'" + editorHTML + "'" + ", " + "'" + audio + "'" +
+                                ") " +
+                            "END " +
+                            "COMMIT TRAN";
 
+                        LogOut.Text = queryUpdate;
+                        sqlCommandList.Add(queryUpdate);
+                    }
                 }
+
                 myConnection.Close();
                 LogOut.Text = sqlCommandList.Count.ToString() +  "rows translated";
 
@@ -335,11 +398,13 @@ namespace TranslateAPIForms
                     rows_Affected = updateRow.ExecuteNonQuery();
                 }
                 myConnection.Close();
+                mySecondConnection.Close();
                 MessageBox.Show("Update concluded");
             }
             catch (Exception ex)
             {
                 myConnection.Close();
+                mySecondConnection.Close();
                 MessageBox.Show("   falha ler colunas, " + ex.ToString());
 
             }
@@ -348,15 +413,26 @@ namespace TranslateAPIForms
         private void buttonTranslateInfo_Click(object sender, EventArgs e)
         {
             LogOut.Text = "initiating connection";
-            SqlConnection myConnection = new SqlConnection("user id=ELVIO-TOSH\\Elvio;" +
-                                       "password=;server=ELVIO-TOSH\\SQLExpress;" +
-                                       "Trusted_Connection=yes;" +
+            SqlConnection myConnection = new SqlConnection("user id=GonçaloDuque\\Gonçalo Duque;" + 
+                                       "password=;server=.\\sqlexpress;" + 
+                                       "Trusted_Connection=yes;" + 
                                        "database=DESCUBRA_BD;" +
+                                       "MultipleActiveResultSets=True;" +
                                        "connection timeout=120");
+
             //Data Source = tcp:k22x2gwhfr.database.windows.net,1433; Initial Catalog = DESCUBRA_BD; User ID = wit5@k22x2gwhfr; Password = @worldit2008
+            
+            SqlConnection mySecondConnection = new SqlConnection("user id=GonçaloDuque\\Gonçalo Duque;" + 
+                                       "password=;server=.\\sqlexpress;" + 
+                                       "Trusted_Connection=yes;" + 
+                                       "database=DESCUBRA_BD;" +
+                                       "MultipleActiveResultSets=True;" +
+                                       "connection timeout=120");
+
             try
             {
                 myConnection.Open();
+                mySecondConnection.Open();
             }
             catch (Exception ex)
             {
@@ -396,42 +472,107 @@ namespace TranslateAPIForms
                     info_id = Convert.ToInt32(myReader["info_id"]);
                     languageCode = "en";
 
-
-                    restaurantHTML = translate(myReader["restaurantHTML"].ToString(), languageCode);
-                    if (restaurantHTML.Equals(""))
-                    {
-                        restaurantHTML = null;
+                    string valRestaurant = "";
+                    SqlCommand restaurantCommand = new SqlCommand("SELECT restaurantHTML FROM dbo.tbl_translate_info WHERE language_id = 2 AND info_id = " + info_id, mySecondConnection);
+                    try{
+                        valRestaurant = (string)restaurantCommand.ExecuteScalar().ToString();
                     }
-                    tbTransl.Text += restaurantHTML;
-                    tbTransl.Text += System.Environment.NewLine;
-
-                    description = translate(myReader["description"].ToString(), languageCode);
-                    if (description.Equals(""))
+                    catch(NullReferenceException ex)
                     {
-                        description = null;
+                        valRestaurant = " ";
                     }
-                    tbTransl2.Text += description;
-                    tbTransl2.Text += System.Environment.NewLine;
-
-                    subtitle = translate(myReader["subtitle"].ToString(), languageCode);
-                    if (subtitle.Equals(""))
+                    if( valRestaurant.Length < 10 || valRestaurant.Equals(null) || valRestaurant.Equals(""))
+                    { 
+                        restaurantHTML = translate(myReader["restaurantHTML"].ToString(), languageCode);
+                        if (restaurantHTML.Equals(""))
+                        {
+                            restaurantHTML = null;
+                        }
+                        tbTransl.Text += restaurantHTML;
+                        tbTransl.Text += System.Environment.NewLine;
+                    }
+                    else
                     {
-                        subtitle = null;
+                        restaurantHTML = valRestaurant;
                     }
-                    tbTransl3.Text += subtitle;
-                    tbTransl3.Text += System.Environment.NewLine;
 
-                    queryUpdate = "UPDATE tbl_translate_info" + " " +
-                        "SET " +
-                        "restaurantHTML = " + "'" + restaurantHTML + "'" + "," +
-                        "description = " + "'" + description + "'" + "," +
-                        "subtitle = " + "'" + subtitle + "'" + " " +
+                    string valDescript = "";
+                    SqlCommand descriptCommand = new SqlCommand("SELECT description FROM dbo.tbl_translate_info WHERE language_id = 2 AND info_id = " + info_id, mySecondConnection);
+                    try{
+                        valDescript = (string)descriptCommand.ExecuteScalar().ToString();
+                    }
+                    catch(NullReferenceException ex)
+                    {
+                        valDescript = " ";
+                    }
+                    if( valDescript.Length < 4 || valDescript.Equals(null) || valDescript.Equals(""))
+                    {   
+                        description = translate(myReader["description"].ToString(), languageCode);
+                        if (description.Equals(""))
+                        {
+                            description = null;
+                        }
+                        tbTransl2.Text += description;
+                        tbTransl2.Text += System.Environment.NewLine;
+                    }
+                    else
+                    {
+                        description = valDescript;
+                    }
 
-                        "WHERE language_id = 2 " +
-                        "AND info_id = " + info_id + ";";
-                    LogOut.Text = queryUpdate;
-                    sqlCommandList.Add(queryUpdate);
+                    string valSubtitle = "";
+                    SqlCommand subtitleCommand = new SqlCommand("SELECT subtitle FROM dbo.tbl_translate_info WHERE language_id = 2 AND info_id = " + info_id, mySecondConnection);
+                    try{
+                        valSubtitle = (string)subtitleCommand.ExecuteScalar().ToString();
+                    }
+                    catch(NullReferenceException ex)
+                    {
+                        valSubtitle = " ";
+                    }
+                    if(valSubtitle.Length < 4 || valSubtitle.Equals(null) || valSubtitle.Equals(""))
+                    {
+                        subtitle = translate(myReader["subtitle"].ToString(), languageCode);
+                        if (subtitle.Equals(""))
+                        {
+                            subtitle = null;
+                        }
+                        tbTransl3.Text += subtitle;
+                        tbTransl3.Text += System.Environment.NewLine;
+                    }
+                    else 
+                    {
+                        subtitle = valSubtitle;
+                    }
 
+                    string audio = Convert.ToString(myReader["audio"]);
+
+                    if((valRestaurant.Length < 11 || valRestaurant.Equals(null) || valRestaurant.Equals("")) || 
+                        (valDescript.Length < 4 || valDescript.Equals(null) || valDescript.Equals("")) || 
+                        (valSubtitle.Length < 4 || valSubtitle.Equals(null) || valSubtitle.Equals("")))
+                    {
+                        queryUpdate = "BEGIN TRAN " +
+                            "IF EXISTS (SELECT * FROM dbo.tbl_translate_info WHERE language_id = 2 AND info_id = " + info_id + " ) "+
+                            "BEGIN " +
+                                "UPDATE tbl_translate_info" + " " +
+                                "SET " +
+                                "restaurantHTML = " + "'" + restaurantHTML + "'" + "," +
+                                "description = " + "'" + description + "'" + "," +
+                                "subtitle = " + "'" + subtitle + "'" + " " +
+                                "WHERE language_id = 2 " +
+                                "AND info_id = " + info_id +
+                            " END " + 
+                            "ELSE " +
+                            "BEGIN " +
+                            "INSERT INTO tbl_translate_info" + " " +
+                            "VALUES ( " + info_id + ", " +
+                            "2, " + "'" + restaurantHTML + "', '" + description + "'" + ", " +
+                            "'" + audio + "', '" + subtitle + "') " +
+                            "END " +
+                            "COMMIT TRAN";
+                        LogOut.Text = queryUpdate;
+
+                        sqlCommandList.Add(queryUpdate);
+                    }
 
                 }
                 myConnection.Close();
@@ -445,6 +586,7 @@ namespace TranslateAPIForms
                     rows_Affected = updateRow.ExecuteNonQuery();
                 }
                 myConnection.Close();
+                mySecondConnection.Close();
                 MessageBox.Show("Update concluded");
 
 
@@ -453,6 +595,7 @@ namespace TranslateAPIForms
             {
                 LogOut.Text = ex.ToString() + "   falha ler colunas";
                 myConnection.Close();
+                mySecondConnection.Close();
                 MessageBox.Show("   falha ler colunas, " + ex.ToString());
 
             }
@@ -461,15 +604,25 @@ namespace TranslateAPIForms
         private void buttonTranslateRoteiro_Click(object sender, EventArgs e)
         {
             LogOut.Text = "initiating connection";
-            SqlConnection myConnection = new SqlConnection("user id=ELVIO-TOSH\\Elvio;" +
-                                       "password=;server=ELVIO-TOSH\\SQLExpress;" +
-                                       "Trusted_Connection=yes;" +
+            SqlConnection myConnection = new SqlConnection("user id=GonçaloDuque\\Gonçalo Duque;" + 
+                                       "password=;server=.\\sqlexpress;" + 
+                                       "Trusted_Connection=yes;" + 
                                        "database=DESCUBRA_BD;" +
+                                       "MultipleActiveResultSets=True;" +
                                        "connection timeout=120");
             //Data Source = tcp:k22x2gwhfr.database.windows.net,1433; Initial Catalog = DESCUBRA_BD; User ID = wit5@k22x2gwhfr; Password = @worldit2008
+            SqlConnection mySecondConnection = new SqlConnection("user id=GonçaloDuque\\Gonçalo Duque;" + 
+                                       "password=;server=.\\sqlexpress;" + 
+                                       "Trusted_Connection=yes;" + 
+                                       "database=DESCUBRA_BD;" +
+                                       "MultipleActiveResultSets=True;" +
+                                       "connection timeout=120");
+
+
             try
             {
                 myConnection.Open();
+                mySecondConnection.Open();
             }
             catch (Exception ex)
             {
@@ -509,41 +662,107 @@ namespace TranslateAPIForms
                     roteiro_id = Convert.ToInt32(myReader["roteiro_id"]);
                     languageCode = "en";
 
-                    name = translate(myReader["name"].ToString(), languageCode);
-                    if (name.Equals(""))
-                    {
-                        name = null;
+
+                    string valName = "";
+                    SqlCommand nameCommand = new SqlCommand("SELECT name FROM dbo.tbl_translate_roteiro WHERE language_id = 2 AND roteiro_id = " + roteiro_id, mySecondConnection);
+                    try{
+                        valName = (string)nameCommand.ExecuteScalar().ToString();
                     }
-                    tbTransl.Text += name;
-                    tbTransl.Text += System.Environment.NewLine;
-
-                    subtitle = translate(myReader["subtitle"].ToString(), languageCode);
-                    if (subtitle.Equals(""))
+                    catch (NullReferenceException ex)
                     {
-                        subtitle = null;
+                        valName = " ";
                     }
-                    tbTransl2.Text += subtitle;
-                    tbTransl2.Text += System.Environment.NewLine;
-
-                    editorHTML = translate(myReader["editorHTML"].ToString(), languageCode);
-                    if (editorHTML.Equals(""))
+                    if( valName.Length < 4 || valName.Equals(null) || valName.Equals(""))
+                    { 
+                        name = translate(myReader["name"].ToString(), languageCode);
+                        if (name.Equals(""))
+                        {
+                            name = null;
+                        }
+                        tbTransl.Text += name;
+                        tbTransl.Text += System.Environment.NewLine;
+                    }
+                    else
                     {
-                        editorHTML = null;
+                        name = valName;
                     }
-                    tbTransl3.Text += editorHTML;
-                    tbTransl3.Text += System.Environment.NewLine;
 
-                    queryUpdate = "UPDATE tbl_translate_roteiro" + " " +
-                        "SET " +
-                        "name = " + "'" + name + "'" + "," +
-                        "subtitle = " + "'" + subtitle + "'" + "," +
-                        "editorHTML = " + "'" + editorHTML + "'" + " " +
 
-                        "WHERE language_id = " + 2 + " " +
-                        "AND roteiro_id = " + roteiro_id + ";";
-                    LogOut.Text = queryUpdate;
-                    sqlCommandList.Add(queryUpdate);
+                    string valSubtitle = "";
+                    SqlCommand subtitleCommand = new SqlCommand("SELECT subtitle FROM dbo.tbl_translate_roteiro WHERE language_id = 2 AND roteiro_id = " + roteiro_id, mySecondConnection);
+                    try{
+                        valSubtitle = (string)subtitleCommand.ExecuteScalar().ToString();
+                    }
+                    catch(NullReferenceException ex)
+                    {
+                        valSubtitle = " ";
+                    }
+                    if(valSubtitle.Length < 4 || valSubtitle.Equals(null) || valSubtitle.Equals(""))
+                    {
+                        subtitle = translate(myReader["subtitle"].ToString(), languageCode);
+                        if (subtitle.Equals(""))
+                        {
+                            subtitle = null;
+                        }
+                        tbTransl2.Text += subtitle;
+                        tbTransl2.Text += System.Environment.NewLine;
+                    }
+                    else
+                    {
+                        subtitle = valSubtitle;
+                    }
 
+                    string valHTML = "";
+                    SqlCommand htmlCommand = new SqlCommand("SELECT editorHTML FROM dbo.tbl_translate_roteiro WHERE language_id = 2 AND roteiro_id = " + roteiro_id, mySecondConnection);
+                    try{
+                        valHTML = (string)htmlCommand.ExecuteScalar().ToString();
+                    }
+                    catch(NullReferenceException ex){
+                        valHTML = " ";
+                    }
+                    if(valHTML.Length < 10 || valHTML.Equals(null)  || valHTML.Equals(""))
+                    {
+                        editorHTML = translate(myReader["editorHTML"].ToString(), languageCode);
+                        if (editorHTML.Equals(""))
+                        {
+                            editorHTML = null;
+                        }
+                        tbTransl3.Text += editorHTML;
+                        tbTransl3.Text += System.Environment.NewLine;
+                    }
+                    else
+                    {
+                        editorHTML = valHTML;
+                    }
+
+                    string audio = Convert.ToString(myReader["audio"]);
+
+                    if((valName.Length < 4 || valName.Equals(null) || valName.Equals("")) || 
+                        (valHTML.Length < 11 || valHTML.Equals(null) || valHTML.Equals("")) || 
+                        (valSubtitle.Length < 4 || valSubtitle.Equals(null) || valSubtitle.Equals("")))
+                    {
+                        queryUpdate = "BEGIN TRAN " +
+                            "IF EXISTS (SELECT * FROM dbo.tbl_translate_roteiro WHERE language_id = 2 AND roteiro_id = " + roteiro_id + " ) "+
+                            "BEGIN " +
+                                "UPDATE tbl_translate_roteiro" + " " +
+                                "SET " +
+                                "name = " + "'" + name + "'" + "," +
+                                "subtitle = " + "'" + subtitle + "'" + "," +
+                                "editorHTML = " + "'" + editorHTML + "'" + " " +
+                                "WHERE language_id = " + 2 + " " +
+                                "AND roteiro_id = " + roteiro_id + " " +
+                            " END" + 
+                            " ELSE" +
+                            " BEGIN " +
+                                "INSERT INTO tbl_translate_roteiro" + " " +
+                                "VALUES ( " + roteiro_id + ", " +
+                                "2, " + "'" + name + "', '" + subtitle + "'" + ", " +
+                                "'" + editorHTML + "', '" + audio + "') " +
+                            "END " +
+                            "COMMIT TRAN";
+                        LogOut.Text = queryUpdate;
+                        sqlCommandList.Add(queryUpdate);
+                    }
 
                 }
                 myConnection.Close();
@@ -556,12 +775,14 @@ namespace TranslateAPIForms
                     rows_Affected = updateRow.ExecuteNonQuery();
                 }
                 myConnection.Close();
+                mySecondConnection.Close();
                 MessageBox.Show("Update concluded");
             }
             catch (Exception ex)
             {
                 LogOut.Text = ex.ToString() + "   falha ler colunas";
                 myConnection.Close();
+                mySecondConnection.Close();
                 MessageBox.Show("   falha ler colunas, " + ex.ToString());
 
             }
@@ -570,15 +791,24 @@ namespace TranslateAPIForms
         private void buttonTranslateTag_Click(object sender, EventArgs e)
         {
             LogOut.Text = "initiating connection";
-            SqlConnection myConnection = new SqlConnection("user id=ELVIO-TOSH\\Elvio;" +
-                                       "password=;server=ELVIO-TOSH\\SQLExpress;" +
-                                       "Trusted_Connection=yes;" +
+            SqlConnection myConnection = new SqlConnection("user id=GonçaloDuque\\Gonçalo Duque;" + 
+                                       "password=;server=.\\sqlexpress;" + 
+                                       "Trusted_Connection=yes;" + 
                                        "database=DESCUBRA_BD;" +
+                                       "MultipleActiveResultSets=True;" +
                                        "connection timeout=120");
             //Data Source = tcp:k22x2gwhfr.database.windows.net,1433; Initial Catalog = DESCUBRA_BD; User ID = wit5@k22x2gwhfr; Password = @worldit2008
+            SqlConnection mySecondConnection = new SqlConnection("user id=GonçaloDuque\\Gonçalo Duque;" + 
+                                       "password=;server=.\\sqlexpress;" + 
+                                       "Trusted_Connection=yes;" + 
+                                       "database=DESCUBRA_BD;" +
+                                       "MultipleActiveResultSets=True;" +
+                                       "connection timeout=120");
+
             try
             {
                 myConnection.Open();
+                mySecondConnection.Open();
             }
             catch (Exception ex)
             {
@@ -614,23 +844,50 @@ namespace TranslateAPIForms
                     tag_id = Convert.ToInt32(myReader["tag_id"]);
                     languageCode = "en";
 
-
-                    name = translate(myReader["name"].ToString(), languageCode);
-                    if (name.Equals(""))
-                    {
-                        name = null;
+                    string valName = "";
+                    SqlCommand nameCommand = new SqlCommand("SELECT name FROM dbo.tbl_translate_tag WHERE language_id = 2 AND tag_id = " + tag_id, mySecondConnection);
+                    try{
+                        valName = (string)nameCommand.ExecuteScalar().ToString();
                     }
-                    tbTransl.Text += name;
-                    tbTransl.Text += System.Environment.NewLine;
+                    catch(NullReferenceException ex)
+                    {
+                        valName = " ";
+                    }
+                    if( valName.Length < 4 || valName.Equals(null) || valName.Equals(""))
+                    {
+                        name = translate(myReader["name"].ToString(), languageCode);
+                        if (name.Equals(""))
+                        {
+                            name = null;
+                        }
+                        tbTransl.Text += name;
+                        tbTransl.Text += System.Environment.NewLine;
+                    }
+                    else
+                    {
+                        name = valName;
+                    }
 
-                    queryUpdate = "UPDATE tbl_translate_tag" + " " +
-                        "SET " +
-                        "name = " + "'" + name + "'" + " " +
+                    if( valName.Length < 4 || valName.Equals(null) || valName.Equals(""))
+                    {
+                        queryUpdate = "BEGIN TRAN " +
+                            "IF EXISTS (SELECT * FROM dbo.tbl_translate_tag WHERE language_id = 2 AND tag_id = " + tag_id + " ) "+
+                            "BEGIN " +
+                                "UPDATE tbl_translate_tag" + " " +
+                                "SET " +
+                                "name = " + "'" + name + "'" + " " +
+                                "WHERE language_id = " + 2 + " " +
+                                "AND tag_id = " + tag_id + " " +
+                            " END" + 
+                            " ELSE" +
+                            " BEGIN " +
+                                "INSERT INTO tbl_translate_tag" + " " +
+                                "VALUES ( " + tag_id + ", " + "2, '" + name + "') " + 
+                            "END " +
+                            "COMMIT TRAN" ;
 
-                        "WHERE language_id = " + 2 + " " +
-                        "AND tag_id = " + tag_id + ";";
-
-                    sqlCommandList.Add(queryUpdate);
+                        sqlCommandList.Add(queryUpdate);
+                    }
 
                 }
                 myConnection.Close();
@@ -644,12 +901,14 @@ namespace TranslateAPIForms
                     rows_Affected = updateRow.ExecuteNonQuery();
                 }
                 myConnection.Close();
+                mySecondConnection.Close();
                 MessageBox.Show("Update concluded");
             }
             catch (Exception ex)
             {
                 LogOut.Text = ex.ToString() + "   falha ler colunas";
                 myConnection.Close();
+                mySecondConnection.Close();
                 MessageBox.Show("   falha ler colunas, " + ex.ToString());
 
             }
