@@ -412,7 +412,7 @@ namespace TranslateAPIForms
             }
         }
 
-        private void buttonTranslateInfo_Click(object sender, EventArgs e)
+private void buttonTranslateInfo_Click(object sender, EventArgs e)
         {
             LogOut.Text = "initiating connection";
             SqlConnection myConnection = new SqlConnection("user id=wit5@k22x2gwhfr;" +
@@ -444,6 +444,8 @@ namespace TranslateAPIForms
                 MessageBox.Show("falha abrir connection");
             }
             MessageBox.Show("This operation will make changes to your database.\n\rAre you sure you want to continue?");
+            string comd = "";
+                string queryUpdate = "";
             try
             {
                 SqlDataReader myReader = null;
@@ -462,7 +464,6 @@ namespace TranslateAPIForms
                 string languageCode = "";
                 int lID;
                 int info_id;
-                string queryUpdate = "";
 
                 string restaurantHTML = "";
                 string description = "";
@@ -483,15 +484,22 @@ namespace TranslateAPIForms
                     }
                     catch(NullReferenceException ex)
                     {
-                        valRestaurant = " ";
+                        valRestaurant = String.Empty;
                     }
-                    if( valRestaurant.Length < 10 || valRestaurant.Equals(null) || valRestaurant.Equals(""))
+                    if( (valRestaurant.Length < 10 || valRestaurant.Equals(null) || valRestaurant.Equals("")) )
                     { 
                         restaurantHTML = translate(myReader["restaurantHTML"].ToString(), languageCode);
                         if (restaurantHTML.Equals(""))
                         {
                             restaurantHTML = null;
                         }
+                        int executar;
+
+                            string sqlRest = "UPDATE tbl_translate_info SET restaurantHTML = '"+ restaurantHTML + "' WHERE info_id = " + info_id + " AND language_id = 2 AND (LEN(restaurantHTML) < 10 OR restaurantHTML IS NULL)";
+                            SqlCommand update = new SqlCommand(sqlRest, myConnection);
+                           
+                            executar = update.ExecuteNonQuery();
+                        //}
                         tbTransl.Text += restaurantHTML;
                         tbTransl.Text += System.Environment.NewLine;
                     }
@@ -507,15 +515,22 @@ namespace TranslateAPIForms
                     }
                     catch(NullReferenceException ex)
                     {
-                        valDescript = " ";
+                        valDescript = String.Empty;
                     }
-                    if( valDescript.Length < 4 || valDescript.Equals(null) || valDescript.Equals(""))
+                    if( (valDescript.Length < 4 || valDescript.Equals(null) || valDescript.Equals("")))
                     {   
                         description = translate(myReader["description"].ToString(), languageCode);
                         if (description.Equals(""))
                         {
                             description = null;
                         }
+                        int executar;
+
+                            string sqlRest = "UPDATE dbo.tbl_translate_info SET description = '" + description+ "' WHERE info_id = " + info_id + " AND language_id = 2 AND (LEN(description) < 4 OR description IS NULL)" ;
+                           // MessageBox.Show(sqlRest);
+                            SqlCommand update = new SqlCommand(sqlRest, myConnection);
+                            executar = update.ExecuteNonQuery();
+                        
                         tbTransl2.Text += description;
                         tbTransl2.Text += System.Environment.NewLine;
                     }
@@ -531,15 +546,20 @@ namespace TranslateAPIForms
                     }
                     catch(NullReferenceException ex)
                     {
-                        valSubtitle = " ";
+                        valSubtitle = String.Empty;
                     }
-                    if(valSubtitle.Length < 4 || valSubtitle.Equals(null) || valSubtitle.Equals(""))
+                    if((valSubtitle.Length < 4 || valSubtitle.Equals(null) || valSubtitle.Equals("") || !valSubtitle.Contains("*")))
                     {
                         subtitle = translate(myReader["subtitle"].ToString(), languageCode);
                         if (subtitle.Equals(""))
                         {
                             subtitle = null;
                         }
+                        int executar;
+
+                            string sqlRest = "UPDATE dbo.tbl_translate_info SET subtitle = '" + subtitle + "' WHERE info_id = " + info_id + " AND language_id = 2 AND (LEN(subtitle) < 4 or subtitle IS NULL)" ;
+                            SqlCommand update = new SqlCommand(sqlRest, myConnection);
+                            executar = update.ExecuteNonQuery();
                         tbTransl3.Text += subtitle;
                         tbTransl3.Text += System.Environment.NewLine;
                     }
@@ -550,46 +570,23 @@ namespace TranslateAPIForms
 
                     string audio = Convert.ToString(myReader["audio"]);
 
-                    if((valRestaurant.Length < 11 || valRestaurant.Equals(null) || valRestaurant.Equals("")) || 
-                        (valDescript.Length < 4 || valDescript.Equals(null) || valDescript.Equals("")) || 
-                        (valSubtitle.Length < 4 || valSubtitle.Equals(null) || valSubtitle.Equals("")))
-                    {
-                        queryUpdate = "BEGIN TRAN " +
-                            "IF EXISTS (SELECT * FROM dbo.tbl_translate_info WHERE language_id = 2 AND info_id = " + info_id + " ) "+
-                            "BEGIN " +
-                                "UPDATE tbl_translate_info" + " " +
-                                "SET " +
-                                "restaurantHTML = " + "'" + restaurantHTML + "'" + "," +
-                                "description = " + "'" + description + "'" + "," +
-                                "subtitle = " + "'" + subtitle + "'" + " " +
-                                "WHERE language_id = 2 " +
-                                "AND info_id = " + info_id +
-                            " END " + 
-                            "ELSE " +
-                            "BEGIN " +
-                            "INSERT INTO tbl_translate_info" + " " +
-                            "VALUES ( " + info_id + ", " +
-                            "2, " + "'" + restaurantHTML + "', '" + description + "'" + ", " +
-                            "'" + audio + "', '" + subtitle + "') " +
-                            "END " +
-                            "COMMIT TRAN";
-                        LogOut.Text = queryUpdate;
-
-                        sqlCommandList.Add(queryUpdate);
-                    }
-
                 }
                 myConnection.Close();
 
                 LogOut.Text = sqlCommandList.Count.ToString() + "rows translated";
 
-                myConnection.Open();
+                string txt;
+                //myConnection.Open();
+                /*
                 foreach (string _cmd in sqlCommandList)
                 {
                     SqlCommand updateRow = new SqlCommand(_cmd, myConnection);
+                    txt = _cmd;
                     rows_Affected = updateRow.ExecuteNonQuery();
+                    comd = _cmd;
                 }
-                myConnection.Close();
+                */
+                //myConnection.Close();
                 mySecondConnection.Close();
                 MessageBox.Show("Update concluded");
 
@@ -598,10 +595,12 @@ namespace TranslateAPIForms
             catch (Exception ex)
             {
                 LogOut.Text = ex.ToString() + "   falha ler colunas";
+                LogOut.Text = comd;
                 myConnection.Close();
                 mySecondConnection.Close();
                 MessageBox.Show("   falha ler colunas, " + ex.ToString());
-
+                MessageBox.Show(queryUpdate);
+                LogOut.Text = queryUpdate;
             }
         }
 
